@@ -70,7 +70,7 @@ class StudentAgent(Agent):
     # for move in legal_moves:
     #     simulated_board = deepcopy(chess_board)
     #     execute_move(simulated_board, move, player)
-    #     _, player_score, opponent_score = check_endgame(simulated_board, player, 3 - player)
+    #     _, player_score, opponent_score = check_endgame(simulated_board, player, opponent)
     #     move_score = self.evaluate_board(simulated_board, player, player_score, opponent_score)
 
     #     if move_score > best_score:
@@ -83,10 +83,10 @@ class StudentAgent(Agent):
     #   if initial_beta <= initial_alpha:
     #     break
 
-    max_time = 2
+    # max_time = 2
     depth = 10  # Define the search depth
 
-    best_move, _ = self.iterative_deepening(chess_board, player, opponent, max_time, depth)
+    best_move = self.iterative_deepening(chess_board, player, opponent, depth)
     
     # Return the move that maximizes the AI's advantage
     #return best_move
@@ -132,34 +132,25 @@ class StudentAgent(Agent):
     #return best
     return best_move 
   
-  def iterative_deepening(self, board, player, opponent, max_time, max_depth):
+  def iterative_deepening(self, board, player, opponent, max_depth, max_time=2):
     """
     Perform iterative deepening with alpha-beta pruning for AI moves.
     """
-    start_time = time.time()
     best_move = None
-    best_score = float('-inf')  # Maximizing player's perspective
-
-    for depth in range(1, max_depth + 1):
-        if time.time() - start_time >= max_time:
-            break  # Stop if time runs out
-
-        # Alpha-beta pruning for the current depth
-        score, move = self.alpha_beta_pruning(board, player, opponent, depth, float('-inf'), float('inf'))
-
-        # Update the best move and score
-        if move is not None:
-            best_move = move
-            best_score = score
-
-        # Stop if time runs out
-        if time.time() - start_time >= max_time:
-            break
-
-    return best_move, best_score
+    depth = 0
+    start_time = time.time()
+    
+    # Run iterative deepening up to the maximum allowed time
+    while time.time() - start_time <= max_time and depth <= max_depth:
+        move = self.alpha_beta_pruning(board, player, opponent, max_depth, float('-inf'))
+        depth += 1
+    
+    if move is not None:
+      best_move = move
+        
+    return best_move
   
-  
-  def alpha_beta_pruning(self, board, player, opponent, depth, alpha, beta):
+  def alpha_beta_pruning(self, board, player, opponent, depth, alpha):
     """
     Perform alpha-beta pruning for Othello with the AI opponent as the maximizing player.
 
@@ -179,7 +170,7 @@ class StudentAgent(Agent):
     # Check for game over or depth limit
     end, _, _ = check_endgame(board, player, opponent)
     if end or depth == 0:
-        return self.evaluate_board(board, player, player_score, opponent_score), None
+        return self.evaluate_board(board, player, player_score, opponent_score)
 
     valid_moves = get_valid_moves(board, player)
     if not valid_moves:  # Pass turn if no valid moves
@@ -191,7 +182,6 @@ class StudentAgent(Agent):
     for move in valid_moves:
         simulated_board = deepcopy(board)
         execute_move(simulated_board, move, player)
-
         opp_valid_moves = get_valid_moves(simulated_board, opponent)
         if opp_valid_moves:
             opponent_avg_score = 0
@@ -205,7 +195,6 @@ class StudentAgent(Agent):
         # else:
         #     # Opponent has no moves
         #     opponent_avg_score = self.alpha_beta_pruning(simulated_board2, player, opponent, depth - 1, alpha, beta)
-
         _, player_score, opponent_score = check_endgame(simulated_board, player, opponent)
         eval_score = self.evaluate_board(simulated_board, player, player_score, opponent_score)
         if eval_score > max_eval:
@@ -215,24 +204,6 @@ class StudentAgent(Agent):
         if beta <= alpha:
             break  # Beta cutoff
     return max_eval, best_move if best_move else random_move(board, player)
-
-  
-
-  
-  
-  # def disc_difference(self, board, player):
-  #   opponent = 3 - player
-  #   player_discs = sum(self.count_in_row(row, player) for row in board)
-  #   opponent_discs = sum(self.count_in_row(row, opponent) for row in board)
-  #   return player_discs - opponent_discs
-  
-  # def count_in_row(self, row, value):
-  #   count = 0
-  #   for cell in row:
-  #       if cell == value:
-  #           count += 1
-  #   return count
-  
   
   def evaluate_board(self, board, player, player_score, opponent_score):
         """
@@ -249,21 +220,59 @@ class StudentAgent(Agent):
         """
         # Corner positions are highly valuable
         corners = [(0, 0), (0, board.shape[1] - 1), (board.shape[0] - 1, 0), (board.shape[0] - 1, board.shape[1] - 1)]
-        corner_score = sum(1 for corner in corners if board[corner] == player) * 10
-        corner_penalty = sum(1 for corner in corners if board[corner] == 3 - player) * -10
+        corner_score = sum(1 for corner in corners if board[corner] == player) * 25
+        corner_penalty = sum(1 for corner in corners if board[corner] == 3 - player) * -25
 
         # Mobility: the number of moves the opponent can make
         player_moves = len(get_valid_moves(board, player))
         opponent_moves = len(get_valid_moves(board, 3 - player))
         mobility_score = player_moves - opponent_moves
 
-        # X-squares: Positions adjacent to corners (high negative weight early)
         x_squares = [(1, 1), (1, board.shape[1] - 2), (board.shape[0] - 2, 1), (board.shape[0] - 2, board.shape[1] - 2)]
-        x_square_penalty = sum(-8 for x in x_squares if board[x] == player)
+        c_positions = [(0, 1), (0, board.shape[1] - 2), (1, 0), (1, board.shape[1] - 1),
+        (board.shape[1] - 2, 0), (board.shape[1] - 2, board.shape[1] - 1), 
+        (board.shape[1] - 1, 1), (board.shape[1] - 1, board.shape[1] - 2)]
+
+        num_moves_played = np.count_nonzero(board)  # Count the number of non-zero (occupied) cells
+        early_game_threshold = 20  # Change this based on game observation
+        x_score = 0
+        c_score = 0
+        x_penalty = 0
+        c_penalty = 0
+
+        if num_moves_played < early_game_threshold:
+          # X-squares: Positions adjacent to corners (high negative weight early)
+          # C-square heuristic (avoid early)
+          x_score = -15 * sum(1 for pos in x_squares if board[pos] == player)
+          c_score = -10 * sum(1 for pos in c_positions if board[pos] == player)
+          x_penalty = 15 * sum(1 for pos in x_squares if board[pos] == 3 - player)
+          c_penalty = 10 * sum(1 for pos in c_positions if board[pos] == 3 - player)
+        else:
+          x_score = -5 * sum(1 for pos in x_squares if board[pos] == player)
+          c_score = -3 * sum(1 for pos in c_positions if board[pos] == player)
+          x_penalty = 5 * sum(1 for pos in x_squares if board[pos] == 3 - player)
+          c_penalty = 3 * sum(1 for pos in c_positions if board[pos] == 3 - player)
+
+        # Stability (stable discs) and edge stability
+        stable_score = 0
+        # Simple idea: assume discs at edges and corners are more stable
+        for r in range(board.shape[0]):
+            for c in range(board.shape[1]):
+                if r == 0 or r == board.shape[0] - 1 or c == 0 or c == board.shape[1] - 1:
+                    if board[r, c] == player:
+                        stable_score += 5
+                    elif board[r, c] == 3 - player:
+                        stable_score -= 5
 
         # Combine scores
-        total_score = player_score - opponent_score + corner_score + corner_penalty + mobility_score + x_square_penalty
+        total_score = player_score - opponent_score + corner_score + corner_penalty + mobility_score + x_score + x_penalty + c_score + c_penalty + stable_score
         return total_score
+  
+  
+
+
+
+
   
   
 
