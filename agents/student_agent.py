@@ -34,90 +34,42 @@ class StudentAgent(Agent):
 
     Please check the sample implementation in agents/random_agent.py or agents/human_agent.py for more details.
     """
-    #Checks if game is over, if it is return the score, score can be calculated in a separate function
-    # end, player_score, opponent_score = check_endgame(chess_board, player, opponent)
-    # if end:
-    #   return self.evaluate_board(chess_board, player, player_score, opponent_score), None
-    
-    # moves = get_valid_moves(chess_board, player)
-    
-    # if not moves:
-    #   return None
-    
-    # initial_alpha = float('-inf')
-    # initial_beta = float('inf')
-    # best = None
-    
-    # for move in moves_AI:
-    #   #Make a copy of the chessboard since might have to compute a lot of moves
-    #   simulated = deepcopy(chess_board)
-    #   execute_move(simulated, move, player)
-    #   _, player_score, opponent_score = check_endgame(simulated, player, opponent)
-    #   alpha = self.evaluate_board(simulated, player, player_score, opponent_score, player)
 
-    #   if alpha > initial_alpha:
-    #     initial_alpha = alpha
-    #     best = move
-    # legal_moves = get_valid_moves(chess_board, player)
+    best_value = float('-inf')
+    best_move = None
 
-    # if not legal_moves:
-    #     return None  # No valid moves available, pass turn
+    end, _ , _ = check_endgame(chess_board, player, opponent)
+    moves = get_valid_moves(chess_board, player)
+    if end or not moves:
+      return None
 
-    # # Advanced heuristic: prioritize corners and maximize flips while minimizing opponent's potential moves
-    # best_move = None
-    # best_score = float('-inf')
+    for move in moves:
+        simulated_board = deepcopy(chess_board)
+        execute_move(simulated_board, move, player)
 
-    # for move in legal_moves:
-    #     simulated_board = deepcopy(chess_board)
-    #     execute_move(simulated_board, move, player)
-    #     _, player_score, opponent_score = check_endgame(simulated_board, player, opponent)
-    #     move_score = self.evaluate_board(simulated_board, player, player_score, opponent_score)
+        # Evaluate opponent's responses (simulating the minimizing player)
+        worst_opponent_value = float('inf')
+        moves_opp = get_valid_moves(simulated_board, opponent)
+        _, p_score , o_score = check_endgame(simulated_board, player, opponent)
 
-    #     if move_score > best_score:
-    #         best_score = move_score
-    #         best_move = move
+        #Get top 10 best moves the opponent could make
+        opponent_moves = sorted(moves_opp, key=lambda m: self.evaluate_board(simulated_board, opponent, p_score, o_score))[:10]
 
-    #     # Return the best move found
-       
+        for opponent_move in opponent_moves:
+            opponent_board = deepcopy(simulated_board)
+            execute_move(opponent_board, opponent_move, opponent)
+            _, player_score, opponent_score = check_endgame(simulated_board, player, opponent)
+            value_player = self.evaluate_board(opponent_board, player, player_score, opponent_score)
 
-    #   if initial_beta <= initial_alpha:
-    #     break
+            # print("Opponent board score", value_opp)
+            # print("Player board score", value_player)
+          
+            worst_opponent_value = min(worst_opponent_value, value_player)
 
-    # max_time = 2
-    depth = 10  # Define the search depth
-
-    best_move = self.iterative_deepening(chess_board, player, opponent, depth)
-    
-    # Return the move that maximizes the AI's advantage
-    #return best_move
-  
-
-    # alpha = float('-inf')
-    # beta = float('inf')
-
-    # best_move = None
-    # best_score = float('inf')  # Start with a large value for minimizing
-
-    # valid_moves = get_valid_moves(chess_board, player)
-    # if not valid_moves:
-    #     return None  # Pass turn if no valid moves
-
-    # for move in valid_moves:
-    #     simulated_board = deepcopy(chess_board)
-    #     execute_move(simulated_board, move, player)
-
-    #     # Run alpha-beta pruning for opponent (maximizing player)
-    #     score, _ = self.alpha_beta_pruning(simulated_board, player, opponent, depth, alpha, beta, True)
-
-    #     if score < best_score:  # Minimize the opponent's maximum score
-    #         best_score = score
-    #         best_move = move
-
-    #     beta = min(beta, score)
-    #     if beta <= alpha:
-    #         break  # Alpha cutoff
-
-  
+        # Update best value for the maximizing player
+        if worst_opponent_value > best_value:
+            best_value = worst_opponent_value
+            best_move = move
 
     # Some simple code to help you with timing. Consider checking 
     # time_taken during your search and breaking with the best answer
@@ -131,79 +83,6 @@ class StudentAgent(Agent):
     # Returning a random valid move as an example
     #return best
     return best_move 
-  
-  def iterative_deepening(self, board, player, opponent, max_depth, max_time=2):
-    """
-    Perform iterative deepening with alpha-beta pruning for AI moves.
-    """
-    best_move = None
-    depth = 0
-    start_time = time.time()
-    
-    # Run iterative deepening up to the maximum allowed time
-    while time.time() - start_time <= max_time and depth <= max_depth:
-        move = self.alpha_beta_pruning(board, player, opponent, max_depth, float('-inf'))
-        depth += 1
-    
-    if move is not None:
-      best_move = move
-        
-    return best_move
-  
-  def alpha_beta_pruning(self, board, player, opponent, depth, alpha):
-    """
-    Perform alpha-beta pruning for Othello with the AI opponent as the maximizing player.
-
-    Parameters:
-    - board: 2D numpy array representing the game board.
-    - player: Integer representing the agent's color (1 for Player 1/Blue, 2 for Player 2/Brown).
-    - opponent: Integer representing the opponent's color.
-    - depth: Current depth of the search tree.
-    - alpha: Alpha value for pruning.
-    - beta: Beta value for pruning.
-    - maximizing_player: Boolean (always True for the opponent in this setup).
-    - evaluate_func: Evaluation function for board state.
-
-    Returns:
-    - tuple: (best_score, best_move)
-    """
-    # Check for game over or depth limit
-    end, _, _ = check_endgame(board, player, opponent)
-    if end or depth == 0:
-        return self.evaluate_board(board, player, player_score, opponent_score)
-
-    valid_moves = get_valid_moves(board, player)
-    if not valid_moves:  # Pass turn if no valid moves
-        return None
-    
-    best_move = None
-    max_eval = float('-inf')
-    beta = float('inf')
-    for move in valid_moves:
-        simulated_board = deepcopy(board)
-        execute_move(simulated_board, move, player)
-        opp_valid_moves = get_valid_moves(simulated_board, opponent)
-        if opp_valid_moves:
-            opponent_avg_score = 0
-            for opp_move in opp_valid_moves:
-              simulated_board2 = deepcopy(simulated_board)
-              execute_move(simulated_board2, opp_move, opponent)
-              _, player_score, opponent_score = check_endgame(simulated_board, player, opponent)
-              child_value = self.evaluate_board(simulated_board, player, player_score, opponent_score)
-              opponent_avg_score += child_value
-            opponent_avg_score /= len(opp_valid_moves)
-        # else:
-        #     # Opponent has no moves
-        #     opponent_avg_score = self.alpha_beta_pruning(simulated_board2, player, opponent, depth - 1, alpha, beta)
-        _, player_score, opponent_score = check_endgame(simulated_board, player, opponent)
-        eval_score = self.evaluate_board(simulated_board, player, player_score, opponent_score)
-        if eval_score > max_eval:
-            max_eval = eval_score
-            best_move = move
-        alpha = max(alpha, eval_score)
-        if beta <= alpha:
-            break  # Beta cutoff
-    return max_eval, best_move if best_move else random_move(board, player)
   
   def evaluate_board(self, board, player, player_score, opponent_score):
         """
@@ -228,6 +107,7 @@ class StudentAgent(Agent):
         opponent_moves = len(get_valid_moves(board, 3 - player))
         mobility_score = player_moves - opponent_moves
 
+        #X squares and C positions
         x_squares = [(1, 1), (1, board.shape[1] - 2), (board.shape[0] - 2, 1), (board.shape[0] - 2, board.shape[1] - 2)]
         c_positions = [(0, 1), (0, board.shape[1] - 2), (1, 0), (1, board.shape[1] - 1),
         (board.shape[1] - 2, 0), (board.shape[1] - 2, board.shape[1] - 1), 
