@@ -47,7 +47,7 @@ class StudentAgent(Agent):
         simulated_board = deepcopy(chess_board)
         execute_move(simulated_board, move, player)
 
-        # Evaluate opponent's responses (simulating the minimizing player)
+        #Evaluate opponent's responses (simulating the minimizing player)
         worst_opponent_value = float('inf')
         moves_opp = get_valid_moves(simulated_board, opponent)
         _, p_score , o_score = check_endgame(simulated_board, player, opponent)
@@ -97,12 +97,12 @@ class StudentAgent(Agent):
         Returns:
         - int: The evaluated score of the board.
         """
-        # Corner positions are highly valuable
+        # Corner positions are highly valuable, taken from gpt_corners
         corners = [(0, 0), (0, board.shape[1] - 1), (board.shape[0] - 1, 0), (board.shape[0] - 1, board.shape[1] - 1)]
         corner_score = sum(1 for corner in corners if board[corner] == player) * 25
         corner_penalty = sum(1 for corner in corners if board[corner] == 3 - player) * -25
 
-        # Mobility: the number of moves the opponent can make
+        # Mobility: the number of moves the opponent can make, taken from gpt_corners
         player_moves = len(get_valid_moves(board, player))
         opponent_moves = len(get_valid_moves(board, 3 - player))
         mobility_score = player_moves - opponent_moves
